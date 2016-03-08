@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html dir="ltr">
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no" />
+   <title>ArcGIS API for JavaScript | Search widget with multiple sources</title>
+   <link rel="stylesheet" href="https://js.arcgis.com/3.16/dijit/themes/claro/claro.css">
+   <link rel="stylesheet" href="https://js.arcgis.com/3.16/esri/css/esri.css">
+   <style>
+      html,
+      body,
+      #map {
+         height: 100%;
+         width: 100%;
+         margin: 0;
+         padding: 0;
+      }
+      #search {
+         display: block;
+         position: absolute;
+         z-index: 2;
+         top: 20px;
+         left: 74px;
+      }
+      #layerListPane{
+         width:25%;
+      }  
+      #layerList{
+         display: block;
+         position: absolute;
+         z-index: 2;
+         top: 5px;
+         right: 5px;
+      }
+      #scaleBarDiv{
+         display: block;
+         position: absolute;
+         z-index: 2;
+         bottom: 20px;
+         left: 120px;
+      }
+      #BasemapToggle {
+         position: absolute;
+         bottom: 60px;
+         right: 20px;
+         z-index: 50;
+      }
+      #HomeButton {
+         position: absolute;
+         top: 95px;
+         left: 20px;
+         z-index: 50;
+   </style>
+
+   </script>
+<script src="https://js.arcgis.com/3.16/"></script>
+   <script>
+
+      var urlDynamic = "http://sampleserver6.arcgisonline.com/arcgis/rest/services/USA/MapServer";
+
+      require([
+        "esri/map",
+        "esri/dijit/Search",
+        "esri/layers/ArcGISDynamicMapServiceLayer",
+        "esri/layers/FeatureLayer",
+        "esri/InfoTemplate",
+        "esri/dijit/LayerList",
+        "esri/dijit/BasemapToggle",
+        "esri/dijit/OverviewMap",
+        "dojo/parser",
+        "esri/layers/ArcGISTiledMapServiceLayer",
+        "esri/dijit/HomeButton",
+        "esri/dijit/Scalebar",
+
+        "dijit/layout/BorderContainer", 
+         "dijit/layout/ContentPane",
+         "dojo/domReady!"
+      ], function (Map,
+         Search,
+         ArcGISDynamicMapServiceLayer,
+         FeatureLayer,
+         InfoTemplate,
+         LayerList,
+         BasemapToggle,
+         OverviewMap,
+         parser,
+         ArcGISTiledMapServiceLayer,
+         HomeButton,
+         Scalebar) {
+         
+         parser.parse();
+
+         //creamos el mapa con el base map de "dark-gray"
+         var map = new Map("map", {
+            basemap: "dark-gray-vector",
+            center: [-97, 38], // lon, lat
+            zoom: 5
+         });
+
+         //creamos la capa dinámica con el servicio que queremos consumir y le 
+         //damos un identificador y una opacidad
+         var dynamLayer = new ArcGISDynamicMapServiceLayer(urlDynamic,{
+            id:"usa",
+            opacity:0.5});
+
+         //añadimos la capa al mapa
+         map.addLayer(dynamLayer);
+
+         //creamos el widget del Layer List pasándole como capa, nuesta capa dinámica;
+         //además le añadimos alguna propiedad más para que muestre la leyenda y el slider
+         //de opacidad
+         var myWidget = new LayerList({
+              map: map,
+              layers: [{
+               layer:dynamLayer,
+               showLegend: true,
+               showOpacitySlider: true,
+               id: "U.S.A."
+              }],
+              showSubLayers: true 
+           },"layerList");
+         //inicializamos el widget
+            myWidget.startup();
+
+         //creamos nuestro widget de Search
+         var search = new Search({
+            enableButtonMode: true, //this enables the search widget to display as a single button
+            enableLabel: false,
+            enableInfoWindow: true,
+            showInfoWindowOnSelect: true,
+            map: map
+         }, "search");
+
+         //obtenemos el array con las fuentes que tiene cargadas nuestro widget para hacer las búsquedas
+         var sources = search.get("sources");
+
+         //añadimos un elemento a este array de fuentes de búsqueda
+            //definimos el servicio, los campos de búsqueda, los campos de salida y otras propiedades
+            
+         sources.push({
+            featureLayer: new FeatureLayer("http://sampleserver6.arcgisonline.com/arcgis/rest/services/USA/MapServer/0"),
+            searchFields: ["areaname"],
+            displayField: "areaname",
+            exactMatch: false,
+            outFields: ["areaname", "pop2000"],
+            name: "Ciudades",
+            placeholder: "Chicago",
+            maxResults: 6,
+            maxSuggestions: 6,
+
+            //Infotemplate para la ventana emergente para el resultado de las búsquedas
+            infoTemplate: new InfoTemplate("${areaname}", "Población: ${pop2000} habitantes"),
+            enableSuggestions: true,
+            minCharacters: 0
+         });
+
+         //añadimos otro elemento a este array de fuentes de búsqueda
+            //definimos el servicio, los campos de búsqueda, los campos de salida y otras propiedades
+         sources.push({
+            featureLayer: new FeatureLayer("http://sampleserver6.arcgisonline.com/arcgis/rest/services/USA/MapServer/2"),
+            searchFields: ["state_name"],
+            displayField: "state_name",
+            exactMatch: false,
+            name: "Estados",
+            outFields: ["*"],
+            placeholder: "North Dakota",
+            maxResults: 6,
+            maxSuggestions: 6,
+
+            //Infotemplate para la ventana emergente para el resultado de las búsquedas
+            infoTemplate: new InfoTemplate("${state_name}", "Subregion: ${sub_region}</br>Población: ${pop2000} habitantes"),
+            
+            enableSuggestions: true,
+            minCharacters: 0
+         });
+
+         //añadimos el array de las fuentes de búsqueda a nuestro widget, en este array ahora ya
+         //se encuentran las nuevas fientes que hemos creado
+         search.set("sources", sources);
+         //inicializamos el widget
+         search.startup();
+
+         //Creamos el widget de BasemapToggle donde definimos el otro basemap que se va a utilizar
+         var toggle = new BasemapToggle({
+            map: map,
+            basemap: "gray"
+         }, "BasemapToggle");
+         //Se inicializa el widget
+         toggle.startup();
+
+         //Creamos el widget de overviewmap y lo situamos abajo a la izquierda de nuestra aplicación
+         //también definimos el basemap que va a mostrar este widget
+         var overviewMapDijit = new OverviewMap({
+            attachTo: "bottom-left",
+            opacity: 0.5,
+            baseLayer: new ArcGISTiledMapServiceLayer("http://services.arcgisonline.com/arcgis/rest/services/Canvas/World_Light_Gray_Base/MapServer"),
+            map: map,
+            visible: false
+         });
+         //Se inicializa el widget
+         overviewMapDijit.startup();
+
+         //Creamos el widget de home button
+         var home = new HomeButton({
+               map: map
+            }, "HomeButton");
+         //Se inicializa el widget
+         home.startup();
+
+         //creamos el widget de la escala
+         var scalebar = new Scalebar({
+               map: map,
+               scalebarStyle: "ruler",
+               scalebarUnit: "metric",
+            });
+
+      });
+   </script>
+</head>
+
+<body>
+   <div id="search"></div>
+   <div id="map">
+      <div id="BasemapToggle"></div>
+      <div id="HomeButton"></div>
+      <div id="scaleBarDiv"></div>
+   </div>
+   <div id="layerListPane">
+      <div id="layerList"></div>
+   </div>
+</body>
+
+</html>
